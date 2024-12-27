@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express'; // ایمپورت تایپ‌ها
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 
 const app = express();
@@ -10,15 +10,16 @@ app.use(express.json());
 // استفاده از fetch داخلی Node.js
 app.get('/proxy', async (req: Request, res: Response) => {
   try {
-    const { license, chatId, text } = req.query;
+    const { text } = req.query; // فقط پارامتر text نیاز است
 
-    // بررسی تایپ و تبدیل query به رشته
-    if (typeof license !== 'string' || typeof chatId !== 'string' || typeof text !== 'string') {
+    // بررسی وجود پارامتر text
+    if (typeof text !== 'string' || !text.trim()) {
       return res.status(400).json({ error: 'پارامترهای ورودی نادرست هستند' });
     }
 
+    // ارسال درخواست به API اصلی
     const apiResponse = await fetch(
-      `https://haji-api.ir/chatgpt-3.5/?license=${license}&chatId=${chatId}&text=${encodeURIComponent(text)}`,
+      `https://req.wiki-api.ir/apis-1/ChatGPT?q=${encodeURIComponent(text)}`,
       {
         method: 'GET',
         headers: {
@@ -33,7 +34,7 @@ app.get('/proxy', async (req: Request, res: Response) => {
     }
 
     const responseData = await apiResponse.json();
-    res.json(responseData);
+    res.json(responseData); // بازگرداندن پاسخ API به کلاینت
   } catch (error) {
     console.error('خطا در ارتباط با API:', error);
     res.status(500).json({ error: 'خطای داخلی سرور پروکسی' });
@@ -43,3 +44,4 @@ app.get('/proxy', async (req: Request, res: Response) => {
 app.listen(PORT, () => {
   console.log(`Proxy server is running on http://localhost:${PORT}`);
 });
+
