@@ -4,20 +4,26 @@ import cors from 'cors';
 const app = express();
 const PORT = 3001;
 
-app.use(cors());
+// تنظیم CORS
+app.use(
+  cors({
+    origin: '*', // یا آدرس خاصی را جایگزین کنید
+    methods: ['GET', 'POST'], // متدهای مجاز
+    allowedHeaders: ['Content-Type', 'Accept'],
+  })
+);
+
 app.use(express.json());
 
 // استفاده از fetch داخلی Node.js
 app.get('/proxy', async (req: Request, res: Response) => {
   try {
-    const { text } = req.query; // فقط پارامتر text نیاز است
+    const { text } = req.query;
 
-    // بررسی وجود پارامتر text
     if (typeof text !== 'string' || !text.trim()) {
       return res.status(400).json({ error: 'پارامترهای ورودی نادرست هستند' });
     }
 
-    // ارسال درخواست به API اصلی
     const apiResponse = await fetch(
       `https://req.wiki-api.ir/apis-1/ChatGPT?q=${encodeURIComponent(text)}`,
       {
@@ -30,11 +36,13 @@ app.get('/proxy', async (req: Request, res: Response) => {
     );
 
     if (!apiResponse.ok) {
-      return res.status(apiResponse.status).json({ error: `خطا از سمت سرور API: ${apiResponse.statusText}` });
+      return res
+        .status(apiResponse.status)
+        .json({ error: `خطا از سمت سرور API: ${apiResponse.statusText}` });
     }
 
     const responseData = await apiResponse.json();
-    res.json(responseData); // بازگرداندن پاسخ API به کلاینت
+    res.json(responseData);
   } catch (error) {
     console.error('خطا در ارتباط با API:', error);
     res.status(500).json({ error: 'خطای داخلی سرور پروکسی' });
