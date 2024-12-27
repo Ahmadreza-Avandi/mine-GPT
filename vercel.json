@@ -13,3 +13,22 @@
     }
   ]
 }
+{
+  "rewrites": [
+    {
+      "source": "/proxy",
+      "destination": "https://mine-gpt-alpha.vercel.app/proxy"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/proxy",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    }
+  ]
+}
