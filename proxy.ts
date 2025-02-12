@@ -24,16 +24,15 @@ app.get('/proxy', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'پارامترهای ورودی نادرست هستند' });
     }
 
-    const apiResponse = await fetch(
-      `https://req.wiki-api.ir/apis-1/ChatGPT?q=${encodeURIComponent(text)}`,
-      {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    const apiUrl = `https://haji-api.ir/chatgpt-3.5/?license=C1b4K8ZUEBAV19f608766091391144ajya&chatId=nt1x4fgqjhl8fob2yqqyx9svrxl141iq&text=${encodeURIComponent(text)}`;
+
+    const apiResponse = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!apiResponse.ok) {
       return res
@@ -42,6 +41,12 @@ app.get('/proxy', async (req: Request, res: Response) => {
     }
 
     const responseData = await apiResponse.json();
+
+    // دیکد کردن پاسخ
+    if (responseData.ok && responseData.answer) {
+      responseData.answer = decodeURIComponent(JSON.parse(`"${responseData.answer}"`));
+    }
+
     res.json(responseData);
   } catch (error) {
     console.error('خطا در ارتباط با API:', error);
@@ -52,4 +57,3 @@ app.get('/proxy', async (req: Request, res: Response) => {
 app.listen(PORT, () => {
   console.log(`Proxy server is running on http://localhost:${PORT}`);
 });
-
