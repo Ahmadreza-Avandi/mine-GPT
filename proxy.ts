@@ -1,84 +1,68 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import fetch from 'node-fetch'; // npm install node-fetch@2
 
 const app = express();
 const PORT = 3001;
 
+// کلید OpenRouter API (امنیت پایینه ولی برات مهم نیست)
+const OPENROUTER_KEY = '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';
+const OPENROUTER_BASE = 'https://openrouter.ai/api/v1/chat/completions';
+const MODEL_ID = 'deepseek/deepseek-coder:free'; // یا هر مدلی که فعال می‌بینی
+
 // تنظیم CORS
 app.use(
   cors({
-    origin: '*', // یا آدرس خاصی را جایگزین کنید
-    methods: ['GET', 'POST'], // متدهای مجاز
+    origin: '*',
+    methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'Accept'],
   })
 );
 
 app.use(express.json());
 
-// استفاده از fetch داخلی Node.js
-import express, { Request, Response } from 'express';
-import cors from 'cors';
-
-const app = express();
-const PORT = 3001;
-
-// تنظیم CORS
-app.use(
-  cors({
-    origin: '*', // یا آدرس خاصی را جایگزین کنید
-    methods: ['GET', 'POST'], // متدهای مجاز
-    allowedHeaders: ['Content-Type', 'Accept'],
-  })
-);
-
-app.use(express.json());
-
-// استفاده از fetch داخلی Node.js
-app.get('/proxy', async (req: Request, res: Response) => {
+app.post('/proxy', async (req: Request, res: Response) => {
   try {
-    const { text } = req.query;
-
+    const { text } = req.body;
     if (!text || typeof text !== 'string') {
-      return res.status(400).json({ error: 'پارامتر text الزامی است' });
+      return res.status(400).json({ error: 'پارامتر text الزامی و باید رشته باشه' });
     }
 
-    const apiUrl = `https://haji-api.ir/chatgpt-3.5/?license=C1b4K8ZUEBAV19f608766091391144ajya&chatId=nt1x4fgqjhl8fob2yqqyx9svrxl141iq&text=${encodeURIComponent(text)}`;
+    // آماده‌سازی درخواست برای OpenRouter
+    const payload = {
+      model: MODEL_ID,
+      messages: [
+        { role: 'user', content: text }
+      ]
+    };
 
-    const apiResponse = await fetch(apiUrl).catch(() => null);
-    
-    if (!apiResponse) {
-      return res.status(500).json({error: 'خطا در ارتباط با سرور خارجی'});
-    }
+    const apiResponse = await fetch(OPENROUTER_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_KEY}`
+      },
+      body: JSON.stringify(payload),
+    });
 
     if (!apiResponse.ok) {
-      return res.status(apiResponse.status).json({
-        error: `خطای API: ${apiResponse.statusText}`
-      });
+      const textErr = await apiResponse.text();
+      return res.status(apiResponse.status).json({ error: `خطای API: ${apiResponse.status} — ${textErr}` });
     }
 
-    const responseData = await apiResponse.json().catch(() => null);
-    
-    if (!responseData || typeof responseData !== 'object') {
-      return res.status(500).json({error: 'پاسخ نامعتبر از سرور API'});
+    const data = await apiResponse.json();
+    const answer = data.choices?.[0]?.message?.content;
+    if (!answer) {
+      return res.status(500).json({ error: 'پاسخ نامعتبر از OpenRouter' });
     }
 
-    if (responseData.ok && responseData.answer) {
-      try {
-        responseData.answer = decodeURIComponent(responseData.answer);
-      } catch (e) {
-        console.error('خطا در رمزگشایی:', e);
-        responseData.answer = 'خطا در پردازش پاسخ';
-      }
-    }
-
-    res.json(responseData);
-    
-  } catch (error) {
-    console.error('خطای سرور:', error);
-    res.status(500).json({error: 'خطای داخلی سرور'});
+    res.json({ ok: true, answer });
+  } catch (err: any) {
+    console.error('خطای سرور:', err);
+    res.status(500).json({ error: 'خطای داخلی سرور' });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Proxy server is running on http://localhost:${PORT}`);
+  console.log(`✅ Proxy server is running on http://localhost:${PORT}`);
 });
