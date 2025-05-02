@@ -2,18 +2,25 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 const app = express();
 const PORT = 3001;
 
 // ——————————————
-// ۱) تنظیم CORS و JSON
+// ۱) تنظیم CORS و JSONت
 app.use(cors());
 app.use(express.json());
 
 // ——————————————
 // ۲) کلاینت GitHub AI
-const apiKey = process.env.GITHUB_AI_KEY || "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";
+const apiKey = process.env.GITHUB_AI_KEY;
+if (!apiKey) {
+  throw new Error('GITHUB_AI_KEY environment variable is not set');
+}
 const client = new OpenAI({
   baseURL: "https://models.github.ai/inference",
   apiKey
