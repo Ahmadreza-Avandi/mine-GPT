@@ -1,56 +1,44 @@
 // server.ts
-import express, { Request, Response } from 'express';
+import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
-// Load environment variables from .env file
 dotenv.config();
-
 const app = express();
 const PORT = 3001;
 
-// ——————————————
-// ۱) تنظیم CORS و JSONت
-app.use(cors());
-app.use(express.json());
+const reversed = process.env.GITHUB_AI_KEY_REVERSED!;
+const apiKey = reversed.split('').reverse().join('');
 
-// ——————————————
-// ۲) کلاینت GitHub AI
-const apiKey = process.env.GITHUB_AI_KEY;
-if (!apiKey) {
-  throw new Error('GITHUB_AI_KEY environment variable is not set');
-}
+
 const client = new OpenAI({
-  baseURL: "https://models.github.ai/inference",
+  baseURL: "https://models.github.ai/inference",  // ← برگشتیم
   apiKey
 });
 
-// ——————————————
-// ۳) فانکشن مشترک ارسال درخواست
 async function askGitHubAI(text: string) {
   const res = await client.chat.completions.create({
     messages: [
       { role: "system", content: "You are GitHub AI." },
-      { role: "user",   content: text }
+      { role: "user", content: text }
     ],
     model: "gpt-4o",
     temperature: 1,
     max_tokens: 4096,
     top_p: 1,
     // @ts-ignore: publisher is allowed by the API but not in SDK types
-    publisher: "openai"  // ←‌ ناشر مدل رو اینجا بذار
+    publisher: "openai"  // ← ناشر واقعی
   });
   return res.choices[0].message.content;
 }
 
-// ——————————————
-// ۴a) POST /proxy
-app.post('/proxy', async (req: Request, res: Response) => {
-  const text = req.body.text as string;
-  if (!text) {
-    return res.status(400).json({ error: "پارامتر text الزامی‌ست" });
-  }
+app.use(cors());
+app.use(express.json());
+
+app.post('/proxy', async (req, res) => {
+  const text = req.body.text;
+  if (!text) return res.status(400).json({ error: "پارامتر text الزامی‌ست" });
   try {
     const answer = await askGitHubAI(text);
     res.json({ ok: true, answer });
@@ -60,14 +48,9 @@ app.post('/proxy', async (req: Request, res: Response) => {
   }
 });
 
-// ——————————————
-// ۴b) GET /proxy
-// مثال: GET /proxy?text=سلام
-app.get('/proxy', async (req: Request, res: Response) => {
+app.get('/proxy', async (req, res) => {
   const text = req.query.text as string;
-  if (!text) {
-    return res.status(400).json({ error: "پارامتر text الزامی‌ست" });
-  }
+  if (!text) return res.status(400).json({ error: "پارامتر text الزامی‌ست" });
   try {
     const answer = await askGitHubAI(text);
     res.json({ ok: true, answer });
@@ -77,8 +60,4 @@ app.get('/proxy', async (req: Request, res: Response) => {
   }
 });
 
-// ——————————————
-// ۵) استارت سرور
-app.listen(PORT, () => {
-  console.log(`✅ Server running at http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`✅ Server on http://localhost:${PORT}`));
