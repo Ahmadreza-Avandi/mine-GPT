@@ -1,36 +1,77 @@
+// server.ts
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { OpenAI } from 'openai';
+import OpenAI from 'openai';
 
 const app = express();
 const PORT = 3001;
 
-// کلید API جدید رو وارد کنید
-const openai = new OpenAI({
-  apiKey: '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',
-  baseURL: 'https://openrouter.ai/api/v1',
-});
-
-app.use(cors({ origin: '*', methods: ['GET', 'POST'], allowedHeaders: ['Content-Type', 'Accept'] }));
+// ——————————————
+// ۱) تنظیم CORS و JSON
+app.use(cors());
 app.use(express.json());
 
-app.get('/proxy', async (req: Request, res: Response) => {
+// ——————————————
+// ۲) کلاینت GitHub AI
+const apiKey = process.env.GITHUB_AI_KEY || "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";
+const client = new OpenAI({
+  baseURL: "https://models.github.ai/inference",
+  apiKey
+});
+
+// ——————————————
+// ۳) فانکشن مشترک ارسال درخواست
+async function askGitHubAI(text: string) {
+  const res = await client.chat.completions.create({
+    messages: [
+      { role: "system", content: "You are GitHub AI." },
+      { role: "user",   content: text }
+    ],
+    model: "gpt-4o",
+    temperature: 1,
+    max_tokens: 4096,
+    top_p: 1,
+    // @ts-ignore: publisher is allowed by the API but not in SDK types
+    publisher: "openai"  // ←‌ ناشر مدل رو اینجا بذار
+  });
+  return res.choices[0].message.content;
+}
+
+// ——————————————
+// ۴a) POST /proxy
+app.post('/proxy', async (req: Request, res: Response) => {
+  const text = req.body.text as string;
+  if (!text) {
+    return res.status(400).json({ error: "پارامتر text الزامی‌ست" });
+  }
   try {
-    const text = req.query.text as string;
-    if (!text) return res.status(400).json({ error: 'پارامتر text الزامی‌ه' });
-
-    const completion = await openai.chat.completions.create({
-      model: 'deepseek/deepseek-r1:free',
-      messages: [{ role: 'user', content: text }],
-    });
-
-    const answer = completion.choices?.[0]?.message?.content;
-    return res.json({ ok: true, answer });
-  } catch (err: any) {
+    const answer = await askGitHubAI(text);
+    res.json({ ok: true, answer });
+  } catch (err) {
     console.error(err);
-    const msg = err?.response?.statusText || err.message;
-    return res.status(500).json({ error: `خطای API: ${msg}` });
+    res.status(500).json({ error: "خطای داخلی" });
   }
 });
 
-app.listen(PORT, () => console.log(`✅ Proxy running on http://localhost:${PORT}`));
+// ——————————————
+// ۴b) GET /proxy
+// مثال: GET /proxy?text=سلام
+app.get('/proxy', async (req: Request, res: Response) => {
+  const text = req.query.text as string;
+  if (!text) {
+    return res.status(400).json({ error: "پارامتر text الزامی‌ست" });
+  }
+  try {
+    const answer = await askGitHubAI(text);
+    res.json({ ok: true, answer });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "خطای داخلی" });
+  }
+});
+
+// ——————————————
+// ۵) استارت سرور
+app.listen(PORT, () => {
+  console.log(`✅ Server running at http://localhost:${PORT}`);
+});
